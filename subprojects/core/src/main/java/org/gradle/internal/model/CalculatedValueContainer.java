@@ -57,7 +57,7 @@ public class CalculatedValueContainer<T, S extends ValueCalculator<? extends T>>
     /**
      * Creates a container for a value that is yet to be produced.
      *
-     * Note: this is package protected. Use {@link CalculatedValueContainerFactory} instead.
+     * <p>Note: this is package protected. Use {@link CalculatedValueContainerFactory} instead.
      */
     CalculatedValueContainer(DisplayName displayName, S supplier, ProjectLeaseRegistry projectLeaseRegistry, NodeExecutionContext defaultContext) {
         this.displayName = displayName;
@@ -67,7 +67,7 @@ public class CalculatedValueContainer<T, S extends ValueCalculator<? extends T>>
     /**
      * Creates a container for a value that has already been produced. For example, the value might have been restored from the configuration cache.
      *
-     * Note: this is package protected. Use {@link CalculatedValueContainerFactory} instead.
+     * <p>Note: this is package protected. Use {@link CalculatedValueContainerFactory} instead.
      */
     CalculatedValueContainer(DisplayName displayName, T value) {
         this.displayName = displayName;
@@ -111,7 +111,7 @@ public class CalculatedValueContainer<T, S extends ValueCalculator<? extends T>>
     /**
      * Returns the supplier of the value, failing if the value has already been calculated and the supplier no longer available.
      *
-     * Note: some other thread may currently be calculating the value
+     * <p>Note: some other thread may currently be calculating the value
      */
     public S getSupplier() throws IllegalStateException {
         CalculationState<T, S> calculationState = this.calculationState;
@@ -150,6 +150,18 @@ public class CalculatedValueContainer<T, S extends ValueCalculator<? extends T>>
             return calculationState.supplier.getOwningProject().getOwner();
         } else {
             return RootScriptDomainObjectContext.INSTANCE.getModel();
+        }
+    }
+
+    @Nullable
+    @Override
+    public WorkNodeAction getPrepareAction() {
+        CalculationState<T, S> calculationState = this.calculationState;
+        if (calculationState != null) {
+            return calculationState.supplier.getPrepareAction();
+        } else {
+            // else, already calculated so has no prepare node
+            return null;
         }
     }
 

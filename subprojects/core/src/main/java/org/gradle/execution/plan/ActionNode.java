@@ -25,6 +25,7 @@ import org.gradle.internal.resources.ResourceLock;
 import javax.annotation.Nullable;
 
 public class ActionNode extends Node implements SelfExecutingNode {
+    private final ActionNode prepareNode;
     private WorkNodeAction action;
     private final ProjectInternal owningProject;
     private final ProjectInternal projectToLock;
@@ -37,6 +38,12 @@ public class ActionNode extends Node implements SelfExecutingNode {
         } else {
             this.projectToLock = null;
         }
+        WorkNodeAction prepareAction = action.getPrepareAction();
+        if (prepareAction != null) {
+            this.prepareNode = new ActionNode(prepareAction);
+        } else {
+            this.prepareNode = null;
+        }
     }
 
     @Nullable
@@ -45,8 +52,22 @@ public class ActionNode extends Node implements SelfExecutingNode {
         return null;
     }
 
+    @Nullable
+    @Override
+    public Node getPrepareNode() {
+        return prepareNode;
+    }
+
     @Override
     public void resolveDependencies(TaskDependencyResolver dependencyResolver) {
+        if (projectToLock != null) {
+            owningProject.getModel().applyToMutableState(p -> doResolveDependencies(dependencyResolver));
+        } else {
+            doResolveDependencies(dependencyResolver);
+        }
+    }
+
+    private void doResolveDependencies(TaskDependencyResolver dependencyResolver) {
         TaskDependencyContainer dependencies = action::visitDependencies;
         for (Node node : dependencyResolver.resolveDependenciesFor(null, dependencies)) {
             addDependencySuccessor(node);

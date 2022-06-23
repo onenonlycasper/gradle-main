@@ -84,7 +84,7 @@ public abstract class TransformationNode extends CreationOrderedNode implements 
 
     @Override
     public String toString() {
-        return transformationStep.getDisplayName();
+        return transformationStep.getDisplayName() + " applied to " + artifact;
     }
 
     public TransformationStep getTransformationStep() {
@@ -142,18 +142,6 @@ public abstract class TransformationNode extends CreationOrderedNode implements 
 
             public TransformInitialArtifact(BuildOperationExecutor buildOperationExecutor) {
                 this.buildOperationExecutor = buildOperationExecutor;
-            }
-
-            @Override
-            public boolean usesMutableProjectState() {
-                // Transforms do not require access to any mutable model state
-                return false;
-            }
-
-            @Nullable
-            @Override
-            public ProjectInternal getOwningProject() {
-                return null;
             }
 
             @Override
@@ -226,18 +214,6 @@ public abstract class TransformationNode extends CreationOrderedNode implements 
 
             public TransformPreviousArtifacts(BuildOperationExecutor buildOperationExecutor) {
                 this.buildOperationExecutor = buildOperationExecutor;
-            }
-
-            @Override
-            public boolean usesMutableProjectState() {
-                // Transforms do not require access to any mutable model state
-                return false;
-            }
-
-            @Nullable
-            @Override
-            public ProjectInternal getOwningProject() {
-                return null;
             }
 
             @Override

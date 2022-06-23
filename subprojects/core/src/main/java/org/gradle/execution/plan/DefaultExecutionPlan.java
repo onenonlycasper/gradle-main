@@ -82,6 +82,8 @@ public class DefaultExecutionPlan implements ExecutionPlan, WorkSource<Node> {
     private final Set<Node> producedButNotYetConsumed = newIdentityHashSet();
     private final Map<Pair<Node, Node>, Boolean> reachableCache = new HashMap<>();
     private final Set<Node> finalizers = new LinkedHashSet<>();
+    private final Set<Node> prepareNodes = new LinkedHashSet<>();
+    private final Set<Node> resolvingDependencies = new LinkedHashSet<>();
     private final OrdinalNodeAccess ordinalNodeAccess;
     private Consumer<LocalTaskNode> completionHandler = localTaskNode -> {
     };
@@ -229,7 +231,6 @@ public class DefaultExecutionPlan implements ExecutionPlan, WorkSource<Node> {
             entryNodes,
             finalizers
         ).run();
-        dependencyResolver.clear();
         executionQueue.setNodes(nodeMapping);
     }
 
@@ -266,8 +267,11 @@ public class DefaultExecutionPlan implements ExecutionPlan, WorkSource<Node> {
             node.reset();
         }
         filteredNodes.clear();
+        finalizers.clear();
+        prepareNodes.clear();
         producedButNotYetConsumed.clear();
         reachableCache.clear();
+        dependencyResolver.clear();
     }
 
     private void resourceUnlocked(ResourceLock resourceLock) {
@@ -400,6 +404,9 @@ public class DefaultExecutionPlan implements ExecutionPlan, WorkSource<Node> {
         executionQueue.restart();
         while (executionQueue.hasNext()) {
             Node node = executionQueue.next();
+            if (resolvingDependencies.contains(node)) {
+                continue;
+            }
             if (node.allDependenciesComplete()) {
                 if (!node.allDependenciesSuccessful()) {
                     // Cannot execute this node due to failed dependencies - skip it
@@ -414,7 +421,7 @@ public class DefaultExecutionPlan implements ExecutionPlan, WorkSource<Node> {
                             node.getPrepareNode().markFailedDueToDependencies(this::recordNodeCompleted);
                         }
                     }
-                    executionQueue.remove();
+                    executionQueue.removeCurrent();
                     // Skipped some nodes, which may invalidate some earlier nodes (for example a shared dependency of multiple finalizers when all finalizers are skipped), so start again
                     executionQueue.restart();
                     continue;
@@ -424,25 +431,35 @@ public class DefaultExecutionPlan implements ExecutionPlan, WorkSource<Node> {
 
                 Node prepareNode = node.getPrepareNode();
                 if (prepareNode != null) {
+                    // Prepare node may be:
+                    // - not scheduled -> calculate dependencies and schedule.
+                    // - executed or failed due to failed dependency -> continue on to the node
+                    // Prepare node may not be:
+                    // - executing, as when started the node
+                    // - cancelled, as the prepare node is also cancelled when the node is cancelled
                     if (!prepareNode.isRequired()) {
                         prepareNode.require();
-                        prepareNode.updateAllDependenciesComplete();
                     }
-                    if (prepareNode.allDependenciesComplete()) {
-                        if (attemptToStart(prepareNode, resources)) {
-                            node.addDependencySuccessor(prepareNode);
-                            node.forceAllDependenciesCompleteUpdate();
-                            return Selection.of(prepareNode);
-                        } else {
-                            // Cannot start prepare node, so skip to next node
-                            continue;
+                    if (prepareNodes.add(prepareNode)) {
+                        node.addDependencySuccessor(prepareNode);
+                        node.forceAllDependenciesCompleteUpdate();
+                        executionQueue.insertBeforeCurrent(prepareNode);
+
+                        // Note: this currently only allows for dependencies on nodes that are already scheduled, and does not check for cycles
+                        resolvingDependencies.add(prepareNode);
+                        try {
+                            prepareNode.resolveDependencies(dependencyResolver);
+                        } finally {
+                            resolvingDependencies.remove(prepareNode);
                         }
+                        prepareNode.updateAllDependenciesComplete();
+                        continue;
                     }
                     // else prepare node has already completed
                 }
 
                 if (attemptToStart(node, resources)) {
-                    executionQueue.remove();
+                    executionQueue.removeCurrent();
                     return Selection.of(node);
                 }
             }
@@ -769,7 +786,7 @@ public class DefaultExecutionPlan implements ExecutionPlan, WorkSource<Node> {
                 // Allow currently executing and enforced tasks to complete, but skip everything else.
                 // If abortAll is set, also stop everything.
                 node.cancelExecution(this::recordNodeCompleted);
-                executionQueue.remove();
+                executionQueue.removeCurrent();
                 aborted = true;
             }
         }
@@ -873,12 +890,12 @@ public class DefaultExecutionPlan implements ExecutionPlan, WorkSource<Node> {
 
     static class ExecutionQueue {
         private final List<Node> nodes = new ArrayList<>();
-        private int pos = 0;
+        private int nextNodeIndex = 0;
 
         public void setNodes(Collection<Node> nodes) {
             this.nodes.clear();
             this.nodes.addAll(nodes);
-            pos = 0;
+            nextNodeIndex = 0;
         }
 
         public void clear() {
@@ -893,29 +910,49 @@ public class DefaultExecutionPlan implements ExecutionPlan, WorkSource<Node> {
             return nodes.size();
         }
 
+        /**
+         * Moves to the first node.
+         */
         public void restart() {
-            pos = 0;
+            nextNodeIndex = 0;
         }
 
         public boolean hasNext() {
-            return pos < nodes.size();
+            return nextNodeIndex < nodes.size();
         }
 
+        /**
+         * Moves to the next node.
+         */
         public Node next() {
-            return nodes.get(pos++);
+            return nodes.get(nextNodeIndex++);
         }
 
-        public void remove() {
-            pos--;
-            nodes.remove(pos);
+        /**
+         * Removes the current node.
+         */
+        public void removeCurrent() {
+            nextNodeIndex--;
+            nodes.remove(nextNodeIndex);
         }
 
+        /**
+         * Inserts the given node *before* the current node, and makes the given node the next node.
+         */
+        public void insertBeforeCurrent(Node node) {
+            nextNodeIndex--;
+            nodes.add(nextNodeIndex, node);
+        }
+
+        /**
+         * Moves the given node to the front of the queue.
+         */
         public void priorityNode(Node node) {
             int previousPos = nodes.indexOf(node);
             nodes.remove(previousPos);
             nodes.add(0, node);
-            if (previousPos >= pos) {
-                pos++;
+            if (previousPos >= nextNodeIndex) {
+                nextNodeIndex++;
             }
         }
     }

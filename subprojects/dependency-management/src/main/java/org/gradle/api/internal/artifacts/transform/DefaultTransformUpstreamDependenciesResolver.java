@@ -29,6 +29,7 @@ import org.gradle.api.internal.file.FileCollectionInternal;
 import org.gradle.api.internal.project.ProjectInternal;
 import org.gradle.api.internal.tasks.NodeExecutionContext;
 import org.gradle.api.internal.tasks.TaskDependencyResolveContext;
+import org.gradle.api.internal.tasks.WorkNodeAction;
 import org.gradle.api.specs.Spec;
 import org.gradle.internal.Describables;
 import org.gradle.internal.Try;
@@ -36,6 +37,7 @@ import org.gradle.internal.model.CalculatedValueContainer;
 import org.gradle.internal.model.CalculatedValueContainerFactory;
 import org.gradle.internal.model.ValueCalculator;
 
+import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Optional;
@@ -78,11 +80,13 @@ public class DefaultTransformUpstreamDependenciesResolver implements TransformUp
     private Set<ComponentIdentifier> buildDependencies;
     private Set<ComponentIdentifier> dependencies;
 
-    public DefaultTransformUpstreamDependenciesResolver(ComponentIdentifier componentIdentifier,
-                                                        ResolutionResultProvider<ResolutionResult> resolutionResultProvider,
-                                                        DomainObjectContext owner,
-                                                        FilteredResultFactory filteredResultFactory,
-                                                        CalculatedValueContainerFactory calculatedValueContainerFactory) {
+    public DefaultTransformUpstreamDependenciesResolver(
+        ComponentIdentifier componentIdentifier,
+        ResolutionResultProvider<ResolutionResult> resolutionResultProvider,
+        DomainObjectContext owner,
+        FilteredResultFactory filteredResultFactory,
+        CalculatedValueContainerFactory calculatedValueContainerFactory
+    ) {
         this.componentIdentifier = componentIdentifier;
         this.resolutionResultProvider = resolutionResultProvider;
         this.owner = owner;
@@ -108,6 +112,11 @@ public class DefaultTransformUpstreamDependenciesResolver implements TransformUp
             dependencies = computeDependencies(componentIdentifier, ComponentIdentifier.class, result.getAllComponents(), false);
         }
         return filteredResultFactory.resultsMatching(fromAttributes, selectDependenciesWithId(dependencies));
+    }
+
+    public void recomputeDependenciesFor(ImmutableAttributes fromAttributes, TaskDependencyResolveContext context) {
+        buildDependencies = null;
+        computeDependenciesFor(fromAttributes, context);
     }
 
     private void computeDependenciesFor(ImmutableAttributes fromAttributes, TaskDependencyResolveContext context) {
@@ -179,6 +188,11 @@ public class DefaultTransformUpstreamDependenciesResolver implements TransformUp
         }
 
         @Override
+        public String toString() {
+            return "finalize upstream dependencies for " + componentIdentifier + " with attributes " + fromAttributes;
+        }
+
+        @Override
         public FileCollection selectedArtifacts() {
             return selectedArtifactsFor(fromAttributes);
         }
@@ -188,9 +202,47 @@ public class DefaultTransformUpstreamDependenciesResolver implements TransformUp
             return owner.getProject() != null;
         }
 
+        @Nullable
         @Override
         public ProjectInternal getOwningProject() {
             return owner.getProject();
+        }
+
+        @Nullable
+        @Override
+        public WorkNodeAction getPrepareAction() {
+            return new WorkNodeAction() {
+                @Override
+                public String toString() {
+                    return "finalize inputs for " + FinalizeTransformDependenciesFromSelectedArtifacts.this;
+                }
+
+                @Override
+                public boolean usesMutableProjectState() {
+                    return FinalizeTransformDependenciesFromSelectedArtifacts.this.usesMutableProjectState();
+                }
+
+                @Nullable
+                @Override
+                public ProjectInternal getOwningProject() {
+                    return FinalizeTransformDependenciesFromSelectedArtifacts.this.getOwningProject();
+                }
+
+                @Override
+                public void visitDependencies(TaskDependencyResolveContext context) {
+                    context.add(selectedArtifacts());
+                }
+
+                @Nullable
+                @Override
+                public WorkNodeAction getPrepareAction() {
+                    return null;
+                }
+
+                @Override
+                public void run(NodeExecutionContext context) {
+                }
+            };
         }
 
         @Override
@@ -205,7 +257,7 @@ public class DefaultTransformUpstreamDependenciesResolver implements TransformUp
 
         public TransformUpstreamDependenciesImpl(TransformationStep transformationStep, CalculatedValueContainerFactory calculatedValueContainerFactory) {
             this.transformationStep = transformationStep;
-            transformDependencies = calculatedValueContainerFactory.create(Describables.of("dependencies for", transformationStep), new FinalizeTransformDependenciesFromSelectedArtifacts(transformationStep.getFromAttributes()));
+            transformDependencies = calculatedValueContainerFactory.create(Describables.of("dependencies for", transformationStep, componentIdentifier), new FinalizeTransformDependenciesFromSelectedArtifacts(transformationStep.getFromAttributes()));
         }
 
         @Override
