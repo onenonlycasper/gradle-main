@@ -22,6 +22,7 @@ import org.gradle.api.internal.tasks.WorkNodeAction;
 import org.gradle.internal.service.scopes.Scopes;
 import org.gradle.internal.service.scopes.ServiceScope;
 
+import javax.annotation.Nullable;
 import java.util.IdentityHashMap;
 import java.util.Map;
 
@@ -39,6 +40,11 @@ public class WorkNodeDependencyResolver implements DependencyResolver {
         ActionNode actionNode = actionNodeFor(action);
         resolveAction.execute(actionNode);
         return true;
+    }
+
+    @Nullable
+    public ActionNode getNode(WorkNodeAction action) {
+        return nodesForAction.get(action);
     }
 
     private ActionNode actionNodeFor(WorkNodeAction action) {
