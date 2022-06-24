@@ -16,7 +16,6 @@
 
 package org.gradle.configurationcache.serialization.codecs.transform
 
-import org.gradle.api.file.FileCollection
 import org.gradle.api.internal.artifacts.transform.DefaultTransformUpstreamDependenciesResolver
 import org.gradle.api.internal.file.FileCollectionInternal
 import org.gradle.api.internal.tasks.TaskDependencyResolveContext
@@ -38,7 +37,7 @@ class FinalizeTransformDependenciesNodeCodec : Codec<DefaultTransformUpstreamDep
                 throw UnsupportedOperationException("Should not be called")
             }
 
-            override fun selectedArtifacts(): FileCollection {
+            override fun selectedArtifacts(): FileCollectionInternal {
                 return artifacts
             }
         }

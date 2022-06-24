@@ -174,12 +174,6 @@ public class DefaultResolvableArtifact implements ResolvableArtifact {
             context.add(artifact.buildDependencies);
         }
 
-        @Nullable
-        @Override
-        public WorkNodeAction getPrepareAction() {
-            return null;
-        }
-
         @Override
         public void run(NodeExecutionContext context) {
             artifact.fileSource.finalizeIfNotAlready();

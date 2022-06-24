@@ -39,7 +39,9 @@ public interface WorkNodeAction {
     void visitDependencies(TaskDependencyResolveContext context);
 
     @Nullable
-    WorkNodeAction getPrepareAction();
+    default WorkNodeAction getPrepareAction() {
+        return null;
+    }
 
     /**
      * Run the action, throwing any failure.

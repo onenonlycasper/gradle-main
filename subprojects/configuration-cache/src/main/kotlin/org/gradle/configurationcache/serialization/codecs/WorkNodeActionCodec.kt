@@ -38,8 +38,6 @@ object WorkNodeActionCodec : Codec<WorkNodeAction> {
 
             override fun getOwningProject(): Project? = null
 
-            override fun getPrepareAction(): WorkNodeAction? = null
-
             override fun visitDependencies(context: TaskDependencyResolveContext) {
             }
 

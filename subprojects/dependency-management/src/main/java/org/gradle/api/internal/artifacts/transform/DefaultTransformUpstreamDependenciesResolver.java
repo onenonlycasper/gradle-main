@@ -169,7 +169,7 @@ public class DefaultTransformUpstreamDependenciesResolver implements TransformUp
     }
 
     public static abstract class FinalizeTransformDependencies implements ValueCalculator<ArtifactTransformDependencies> {
-        public abstract FileCollection selectedArtifacts();
+        public abstract FileCollectionInternal selectedArtifacts();
 
         @Override
         public ArtifactTransformDependencies calculateValue(NodeExecutionContext context) {
@@ -193,7 +193,7 @@ public class DefaultTransformUpstreamDependenciesResolver implements TransformUp
         }
 
         @Override
-        public FileCollection selectedArtifacts() {
+        public FileCollectionInternal selectedArtifacts() {
             return selectedArtifactsFor(fromAttributes);
         }
 

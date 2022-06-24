@@ -446,6 +446,8 @@ public class DefaultExecutionPlan implements ExecutionPlan, WorkSource<Node> {
                         executionQueue.insertBeforeCurrent(prepareNode);
 
                         // Note: this currently only allows for dependencies on nodes that are already scheduled, and does not check for cycles
+                        // Note: resolving dependencies may release the state lock and allow other worker threads to try to start work
+                        // While resolving dependencies disallow execution of the prepare node
                         resolvingDependencies.add(prepareNode);
                         try {
                             prepareNode.resolveDependencies(dependencyResolver);
