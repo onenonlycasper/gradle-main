@@ -40,12 +40,12 @@ enum JavaTestProjectGenerator {
         .testChangeFile(-1)
         .create()),
     LARGE_JAVA_MULTI_PROJECT(new TestProjectGeneratorConfigurationBuilder("largeJavaMultiProject")
-        .withSourceFiles(100)
-        .withSubProjects(500)
+        .withSourceFiles(1)
+        .withSubProjects(5)
         .withDaemonMemory('1536m')
         .withCompilerMemory('512m')
         .assembleChangeFile()
-        .testChangeFile(450, 2250, 45000).create()),
+        .testChangeFile(1, 1, 1).create()),
     LARGE_MONOLITHIC_GROOVY_PROJECT(new TestProjectGeneratorConfigurationBuilder("largeMonolithicGroovyProject", Language.GROOVY)
         .withSourceFiles(50000)
         .withSubProjects(0)
@@ -67,21 +67,21 @@ enum JavaTestProjectGenerator {
     LARGE_JAVA_MULTI_PROJECT_NO_BUILD_SRC(
         new TestProjectGeneratorConfigurationBuilder("largeJavaMultiProjectNoBuildSrc", "largeJavaMultiProject")
             .withBuildSrc(false)
-            .withSourceFiles(100)
-            .withSubProjects(500)
+            .withSourceFiles(1)
+            .withSubProjects(5)
             .withDaemonMemory('1536m')
             .withCompilerMemory('256m')
             .assembleChangeFile()
-            .testChangeFile(450, 2250, 45000)
+            .testChangeFile(1, 1, 1)
             .create()
     ),
     LARGE_JAVA_MULTI_PROJECT_KOTLIN_DSL(new TestProjectGeneratorConfigurationBuilder("largeJavaMultiProjectKotlinDsl", "largeJavaMultiProject")
-        .withSourceFiles(100)
-        .withSubProjects(500)
+        .withSourceFiles(1)
+        .withSubProjects(5)
         .withDaemonMemory('1536m')
         .withCompilerMemory('256m')
         .assembleChangeFile()
-        .testChangeFile(450, 2250, 45000)
+        .testChangeFile(1, 1, 1)
         .withDsl(KOTLIN)
         .create()),
 
